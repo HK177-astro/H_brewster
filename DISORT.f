@@ -271,7 +271,7 @@ c
 c   TPLANK            Intensity emitted from top boundary
 c
 c   UUM(IU,LU)        Expansion coefficients when the intensity
-c                     (u-super-M) is expanded in Fourier cosine series
+c                     (HST_W0359_brewster-super-M) is expanded in Fourier cosine series
 c                     in azimuth angle
 c
 c   U0C(IQ,LU)        Azimuthally-averaged intensity at quadrature

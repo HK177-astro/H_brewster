@@ -227,7 +227,7 @@ c --------------------------------------------------------------------
         CASE (1)
           I1MACH = 5 ! Input unit
         CASE (2)
-          I1MACH = 6 ! Output unit
+          I1MACH = 6 ! G570D_output unit
         CASE (3)
           STOP 'I1MACH: input arg = 3 is obsolete'
         CASE (4)

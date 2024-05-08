@@ -2,6 +2,7 @@ import numpy as np
 from bbconv import prism
 from bbconv import convfwhm
 from bbconv import convr
+from bbconv import convnonuniformr
 
 #**************************************************************************
 
@@ -12,7 +13,6 @@ from bbconv import convr
 #**************************************************************************
 
 def prism_non_uniform(obspec,modspec,resel):
-
 
     fluxout = prism(np.asfortranarray(obspec),np.asfortranarray(modspec),resel)[0:obspec[0,:].size]
 
@@ -26,11 +26,15 @@ def conv_uniform_FWHM(obspec,modspec,fwhm):
     return fluxout
 
 
-        
-
 def conv_uniform_R(obspec,modspec,R):
 
     fluxout = convr(np.asfortranarray(obspec),np.asfortranarray(modspec),R)[0:obspec[0,:].size]
-    
+
+    return fluxout
+
+
+def conv_non_uniform_R(obspec, modspec, R):
+
+    fluxout = convnonuniformr(np.asfortranarray(obspec), np.asfortranarray(modspec))[0:obspec[0, :].size]
 
     return fluxout

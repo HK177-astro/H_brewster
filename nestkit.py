@@ -20,6 +20,7 @@ from astropy.convolution import Gaussian1DKernel
 from bensconv import prism_non_uniform
 from bensconv import conv_uniform_R
 from bensconv import conv_uniform_FWHM
+from bensconv import conv_non_uniform_R
 
 __author__ = "Ben Burningham"
 __copyright__ = "Copyright 2015 - Ben Burningham"
@@ -59,23 +60,23 @@ def priormap(theta):
         phi[1] = (theta[1] * (coscale[-1] - coscale[0])) + coscale[0]
         ng = 2
     else:
-        if (gasnum[gasnum.size-1] == 22):
+        if (gasnum[gasnum.size-1] == 21):
             ng = gasnum.size - 1
             rem = 1.0
             for i in range(0, ng):
-                phi[i] = np.log10(rem) -  (theta[i] * 12.)
+                phi[i] = np.log(rem) -  (theta[i] * 12.)
                 rem = rem - (10**phi[i])    
-        elif (gasnum[gasnum.size-1] == 24):
+        elif (gasnum[gasnum.size-1] == 23):
             ng = gasnum.size - 2
             rem = 1.0
             for i in range(0, ng):
-                phi[i] = np.log10(rem) -  (theta[i] * 12.)
+                phi[i] = np.log(rem) -  (theta[i] * 12.)
                 rem = rem - (10**phi[i])    
         else:
             ng = gasnum.size
             rem = 1.0
             for i in range(0, ng):
-                phi[i] = np.log10(rem) -  (theta[i] * 12.)
+                phi[i] = np.log(rem) -  (theta[i] * 12.)
                 rem = rem - (10**phi[i])    
 
             
@@ -92,7 +93,7 @@ def priormap(theta):
 
     # need to deal with options for multi instrument setups now
     if (fwhm < 0.0):
-        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -8):
+        if (fwhm == -1 or fwhm == -3 or fwhm == -4):
             s1  = np.where(obspec[0,:] < 2.5)
             s2  = np.where(np.logical_and(obspec[0,:] > 2.5,obspec[0,:] < 5.0))
             s3 =  np.where(obspec[0,:] > 5.)
@@ -193,7 +194,7 @@ def priormap(theta):
     if (npatches > 1):
         phi[pc] = theta[pc]
         pc = pc + 1
-    if (cloudtype.size > cloudtype.shape[1]):
+    if (cloudtype.size > cloudtype.shape[0]):
         nclouds = cloudtype.shape[1]
     else:
         nclouds = cloudtype.size
@@ -304,19 +305,22 @@ def priormap(theta):
         # then two quartile points
         # These define T at define pressure points
         # This does not allow reversals
-        knots = len(coarsePress)
         phi[ndim-1] = theta[ndim-1] * 5000.
-        # now bottom up for all the knots
-        for i in range(2,knots+1):
-            phi[ndim - i] = theta[ndim - i] * phi[(ndim - i) + 1]
-        
+        # now top of atmosphere temp, defined as being less than bottom
+        phi[ndim-5] = theta[ndim-5] * phi[ndim-1]
+        # now middle of atmosphere
+        phi[ndim-3] = phi[ndim-5] + (theta[ndim-3] * (phi[ndim-1] - phi[ndim-5]))
+        # now deep quartile
+        phi[ndim-2] = phi[ndim-3] + (theta[ndim-2] * (phi[ndim-1] - phi[ndim-3]))
+        # and bottom shallow quartile
+        phi[ndim-4] = phi[ndim-5] + (theta[ndim-4] * (phi[ndim-3] - phi[ndim-5]))
         return phi
         
     if (proftype == 2):
         # a1
         phi[pc+nc] = 0.25 + (theta[pc+nc]*0.25)
         # a2
-        phi[pc+nc+1] = 0.1 + (theta[pc+1+nc] * 0.1)
+        phi[pc+nc+1] = 0.1 * (theta[pc+1+nc] * 0.1)
         #P1
         phi[pc+nc+2] = (theta[pc+2+nc]* \
                              (np.log10(press[-1]) - np.log10(press[0]))) + np.log10(press[0])
@@ -340,38 +344,9 @@ def priormap(theta):
         #P3 must be greater than or equal P2
         phi[pc+nc+4] = (theta[pc+nc+4] * (np.log10(press[-1]) - phi[pc+nc+2])) + phi[pc+nc+3]
         #T3
-        phi[pc+nc+5] = (theta[pc+nc5+5] * 3000.) + 1500.
-        return phi
-
-    elif (proftype == 6):
-        # This is not Mike Line's profile. This is a simple n point spline.
-        # each layer is completely free, does not have to be declining in T.
-        knots = len(coarsePress)
-        phi[ndim-knots:] = theta[ndim-knots:] * 4000.
-        
+        phi[pc+nc+5] = (theta[pc+4+n5] * 3000.) + 1500.
         return phi
     
-    elif (proftype == 7):
-        # Tint - prior following Molliere+2020
-        phi[pc+nc] = 300 + (theta[pc+nc] * 2000)
-        # alpha, between 1 and 2
-        phi[pc+nc+1] = theta[pc+nc+1] + 1. 
-        # delta
-        plen = np.log10(press[-1]) - np.log10(press[0])
-        logPphot = np.log10(press[0]+(theta[pc+nc+2]*plen))
-        phi[pc+nc+2] = 10**(-phi[pc+nc+1]*logPphot)
-
-        # get Tconnect from Tint get prior range following Molliere+2020
-        Tint = phi[pc+nc]    
-        Tconnect = (((3/4) * Tint**4) * ((2/3) + (0.1)))**(1/4)
-        # now get T3
-        phi[pc+nc+5] = 10. + (theta[pc+nc+5] * Tconnect)
-        # T2
-        phi[pc+nc+4] = 10. + (theta[pc+nc+4] * phi[pc+nc+5])
-        # T1
-        phi[pc+nc+3] = 10.+ (theta[pc+nc+3] * phi[pc+nc+4])
-        return phi
-        
     elif (proftype == 9):
         return phi
 
@@ -383,12 +358,12 @@ def lnlike(theta):
     # get the spectrum
     # for MCMC runs we don't want diagnostics
     gnostics = 0
-    shiftspec, photspec,tauspec,cfunc = modelspec(theta)
+    shiftspec, photspec,tauspec,cfunc = modelspec(theta,settings.runargs,gnostics)
     # Check if CE or VMR methods
     if chemeq == 0:
-        if (gasnum[gasnum.size-1] == 22):
+        if (gasnum[gasnum.size-1] == 21):
             ng = gasnum.size - 1
-        elif (gasnum[gasnum.size-1] == 24):
+        elif (gasnum[gasnum.size-1] == 23):
             ng = gasnum.size -2
         else:
             ng = gasnum.size
@@ -399,7 +374,7 @@ def lnlike(theta):
 
     # Get the scaling factors for the spectra. What is the FWHM? Negative number: preset combination of instruments
     if (fwhm < 0.0):
-        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -7 or fwhm == -8):
+        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -7):
             scale1 = theta[ng+2]
             scale2 = theta[ng+3]
             if (do_fudge == 1):
@@ -440,16 +415,26 @@ def lnlike(theta):
             s2 = obspec[2,:]**2
 
         lnLik=-0.5*np.sum((((obspec[1,:] - spec[:])**2) / s2) + np.log(2.*np.pi*s2))       
-    elif (fwhm > 10.00):
+    #elif (fwhm > 10.00):
         # this is a uniform resolving power R.
-        Res = fwhm
-        spec = conv_uniform_R(obspec,modspec,Res)
+        #Res = fwhm
+        #spec = conv_uniform_R(obspec,modspec,Res)
+        #if (do_fudge == 1):
+            #s2=obspec[2,:]**2 + 10.**logf
+        #else:
+            #s2 = obspec[2,:]**2
+
+        #lnLik=-0.5*np.sum((((obspec[1,:] - spec[:])**2) / s2) + np.log(2.*np.pi*s2))
+    elif (fwhm == 999.0):
+        # this is a non-uniform resolving power R.
+        spec = conv_non_uniform_R(obspec, modspec)
         if (do_fudge == 1):
             s2=obspec[2,:]**2 + 10.**logf
         else:
             s2 = obspec[2,:]**2
 
         lnLik=-0.5*np.sum((((obspec[1,:] - spec[:])**2) / s2) + np.log(2.*np.pi*s2))
+
     elif (fwhm == 0.0):
         # Use convolution for Spex
         spec = prism_non_uniform(obspec,modspec,3.3)
@@ -495,17 +480,6 @@ def lnlike(theta):
 
         lnLik=-0.5*np.sum((((obspec[1,:] - spec[:])**2) / s2) + np.log(2.*np.pi*s2))
 
-    elif (fwhm == 3.0):
-        # JWST NIRSpec G395H data with 2.2 pixels per resolving element
-        # Use convolution for Spex
-        spec = prism_non_uniform(obspec,modspec,2.2)
-        if (do_fudge == 1):
-            s2=obspec[2,::3]**2 + 10.**logf
-        else:
-            s2 = obspec[2,::3]**2
-            
-        lnLik=-0.5*np.sum((((obspec[1,::3] - spec[::3])**2) / s2) + np.log(2.*np.pi*s2))  
-        
     elif (fwhm < 0.0):
         lnLik = 0.0
         # This is for multi-instrument cases
@@ -739,63 +713,21 @@ def lnlike(theta):
 
             lnLik = lnLik1 + lnLik2 + lnLik3 + lnLik4
 
-        elif (fwhm == -8):
-            # This is spex + JWST G395H R 2700 + IRS 
-            # Spex
-            mr1 = np.where(shiftspec[0,:] < 2.5)
-            or1  = np.where(obspec[0,:] < 2.5)
-            wno = 1e4 / shiftspec[0,mr1]
-            spec1 = prism_non_uniform(obspec[:,or1],modspec,3.3)
-
-            modspec = np.array([shiftspec[0,::-1],shiftspec[1,::-1]])
-            # JWST G395H
-            R = 2700
-            or2 = np.where(np.logical_and(obspec[0,:] > 2.5,obspec[0,:] < 5.2))
-            spec2 = scale1 * conv_uniform_R(obspec[:,or2],modspec,R)
-
-            # Spitzer IRS
-            # R roughly constant within orders, and orders both appear to
-            # have R ~ 100
-            R = 100.0
-            #mr3 = np.where(modspec[0,:] > 5.0)
-            or3 = np.where(obspec[0,:] > 5.2)
-            spec3 = scale2 * conv_uniform_R(obspec[:,or3],modspec,R)
-
-            if (do_fudge == 1):
-                s1 = obspec[2,or1]**2 + 10.**logf[0]
-                s2 = obspec[2,or2]**2 + 10.**logf[1]
-                s3 = obspec[2,or3]**2 + 10.**logf[2]
-            else:
-                s1 = obspec[2,or1]**2
-                s2 = obspec[2,or2]**2
-                s3 = obspec[2,or3]**2
-
-
-            lnLik1=-0.5*np.sum((((obspec[1,or1] - spec1)**2) / s1) + np.log(2.*np.pi*s1))
-            lnLik2=-0.5*np.sum((((obspec[1,or2] - spec2)**2) / s2) + np.log(2.*np.pi*s2))
-            lnLik3=-0.5*np.sum((((obspec[1,or3] - spec3)**2) / s3) + np.log(2.*np.pi*s3))
-            lnLik = lnLik1 + lnLik2 + lnLik3
-
-
     if np.isnan(lnLik):
         lnLik = -np.inf
         
     return lnLik
 
 
-def modelspec(theta,args=None, gnostics=0):
+def modelspec(theta, args,gnostics=0):
 
-    if args is None:
-     gases_myP,chemeq,dist,dist_err,cloudtype, do_clouds,gasnum,gaslist,cloudnum,inlinetemps,coarsePress,press,inwavenum,linelist,cia,ciatemps,use_disort,fwhm,obspec,proftype,do_fudge,prof,do_bff,bff_raw,ceTgrid,metscale,coscale = settings.runargs
-    else:
-        gases_myP,chemeq,dist,dist_err,cloudtype, do_clouds,gasnum,gaslist,cloudnum,inlinetemps,coarsePress,press,inwavenum,linelist,cia,ciatemps,use_disort,fwhm,obspec,proftype,do_fudge,prof,do_bff,bff_raw,ceTgrid,metscale,coscale = args
-
-        
+    gases_myP,chemeq,dist,dist_err,cloudtype, do_clouds,gasnum,gaslist,cloudnum,inlinetemps,coarsePress,press,inwavenum,linelist,cia,ciatemps,use_disort,fwhm,obspec,proftype,do_fudge,prof,do_bff,bff_raw,ceTgrid,metscale,coscale = args
     nlayers = press.size
+
     if chemeq == 0:
-        if (gasnum[gasnum.size-1] == 22):
+        if (gasnum[gasnum.size-1] == 21):
             ng = gasnum.size - 1
-        elif (gasnum[gasnum.size-1] == 24):
+        elif (gasnum[gasnum.size-1] == 23):
             ng = gasnum.size -2
         else:
             ng = gasnum.size
@@ -819,7 +751,7 @@ def modelspec(theta,args=None, gnostics=0):
     R2D2 = R**2. / D**2.
 
     if (fwhm < 0.0):
-        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -7 or fwhm == -8):
+        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -7):
             dlam = theta[ng+4]
             if (do_fudge == 1):
                 logf = theta[ng+5:ng+8]
@@ -900,19 +832,19 @@ def modelspec(theta,args=None, gnostics=0):
 
         # now sort Na and K
         # get the ngas for forward model (ngas, not ng
-        if (gasnum[gasnum.size-1] == 22):
+        if (gasnum[gasnum.size-1] == 21):
             ngas = invmr.shape[0] + 1
-        elif (gasnum[gasnum.size-1] == 24):
+        elif (gasnum[gasnum.size-1] == 23):
             ngas = invmr.shape[0] + 2
         else:
             ngas = invmr.shape[0]
 
         tmpvmr = np.empty(ngas,dtype='d')
-        if (gasnum[gasnum.size-1] == 22):
+        if (gasnum[gasnum.size-1] == 21):
             tmpvmr[0:(ngas-2)] = invmr[0:(ngas-2)]
             tmpvmr[ngas-2] = np.log10(10.**invmr[ngas-2] / (alkratio+1.)) # K
             tmpvmr[ngas-1] = np.log10(10.**invmr[ngas-2] * (alkratio / (alkratio+1.))) # Na
-        elif (gasnum[gasnum.size-1] == 24):
+        elif (gasnum[gasnum.size-1] == 23):
             #f values are ratios between Na and (K+Cs) and K and Cs respectively
             f1 = 1.348
             f2 = 8912.5
@@ -994,15 +926,13 @@ def get_opacities(gaslist,w1,w2,press,xpath='../Linelists',xlist='gaslistR10K.da
     # Now we'll get the opacity files into an array
     ngas = len(gaslist)
 
-    totgas = 0
+    totgas = 24
     gasdata = []
     with open(xlist) as fa:
-        for line_aa in fa.readlines():
-            if len(line_aa) == 0:
-                break
-            totgas = totgas +1 
+        for line_aa in fa.readlines()[1:totgas+1]:
             line_aa = line_aa.strip()
             gasdata.append(line_aa.split())
+
     
     list1 = []    
     for i in range(0,ngas):
@@ -1022,7 +952,7 @@ def get_opacities(gaslist,w1,w2,press,xpath='../Linelists',xlist='gaslistR10K.da
      
 
     lists = [xpath+i[3] for i in list1[0:ngas]]
-    gasmass = [i[2] for i in list1[0:ngas]]
+    gasmass = [xpath+i[2] for i in list1[0:ngas]]
     gasnum = np.asfortranarray(np.array([i[0] for i in list1[0:ngas]],dtype='i'))
 
 
@@ -1123,12 +1053,12 @@ def countdims(runargs,plist = False):
         pnames = ['[M/H]','(C/O)']
         ng = 2
     else:
-        if (gasnum[gasnum.size-1] == 22):
+        if (gasnum[gasnum.size-1] == 21):
             for i in range(0,gasnum.size-2):
                 pnames.append(gaslist[i])
             pnames.append('Na+K')
             ng = gasnum.size - 1
-        elif (gasnum[gasnum.size-1] == 24):
+        elif (gasnum[gasnum.size-1] == 23):
             for i in range(0,gasnum.size-3):
                 pnames.append(gaslist[i])
             pnames.append('Cs+Na+K')
@@ -1142,7 +1072,7 @@ def countdims(runargs,plist = False):
 
     # need to deal with options for multi instrument setups now
     if (fwhm < 0.0):
-        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -7 or fwhm == -8):
+        if (fwhm == -1 or fwhm == -3 or fwhm == -4 or fwhm == -7):
             if (do_fudge == 1):
                 pnames.extend(['Scale1','Scale2','dlam','logb1','logb2','logb3'])
                 pc = ng+8
@@ -1177,7 +1107,7 @@ def countdims(runargs,plist = False):
     if (npatches > 1):
         pc = pc + 1
         pnames.append('Pcov')
-    if (cloudtype.size > cloudtype.shape[1]):
+    if (cloudtype.size > cloudtype.shape[0]):
         nclouds = cloudtype.shape[1]
     else:
         nclouds = cloudtype.size
@@ -1239,10 +1169,10 @@ def countdims(runargs,plist = False):
                     print("cloudtypes 3 and 4 not yet implemented here")
                     sys.exit()
     # now add the proftype params...
-    if (proftype == 1 or proftype == 6):
-        for i in range(0,knots):
-            pnames.extend(['T_'+str(round(np.log10(coarsePress[i]),1))])
-        ndim = pc+nc+knots
+    if (proftype == 1):
+        for i in range(0, knots):
+            pnames.extend(['T_' + str(round(np.log10(coarsePress[i]), 1))])
+            ndim = pc + nc + knots
     
     elif (proftype == 2):
         pnames.extend(['a1','a2','P1','P3','T3'])
@@ -1251,12 +1181,7 @@ def countdims(runargs,plist = False):
     elif (proftype == 3):
         pnames.extend(['a1','a2','P1','P2','P3','T3'])
         ndim = pc+nc+6
-
-    elif (proftype == 7):
-        pnames.extend(['Tint','alpha','delta','T1','T2','T3'])
-        ndim = pc+nc+6
-
-        
+     
     elif (proftype == 9):
         ndim = pc+nc
 

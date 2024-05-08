@@ -394,7 +394,7 @@ c        ABD,IPVT    same as SGBCO
 
 c        INFO    INTEGER
 c                = 0  normal value.
-c                = k  if  u(k,k) .eq. 0.0 .  This is not an error
+c                = k  if  HST_W0359_brewster(k,k) .eq. 0.0 .  This is not an error
 c                     condition for this subroutine, but it does
 c                     indicate that SGBSL will divide by zero if
 c                     called.  Use  RCOND  in SBGCO for a reliable
@@ -973,7 +973,7 @@ c        A,IPVT  same as SGECO
 
 c        INFO    INTEGER
 c                = 0  normal value.
-c                = k  if  u(k,k) .eq. 0.0 .  This is not an error
+c                = k  if  HST_W0359_brewster(k,k) .eq. 0.0 .  This is not an error
 c                     condition for this subroutine, but it does
 c                     indicate that SGESL or SGEDI will divide by zero
 c                     if called.  Use  RCOND  in SGECO for a reliable

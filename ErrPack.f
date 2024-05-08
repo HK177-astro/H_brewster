@@ -90,7 +90,7 @@ c       percent error from the correct value;  return  'FALSE'.
 
       TstBad = .FALSE.
       WRITE( *, '(/,3A,1P,E11.2,A)' )
-     &       ' Output variable ', VarNam,' differed by ', 100.*RelErr,
+     &       ' G570D_output variable ', VarNam,' differed by ', 100.*RelErr,
      &       ' per cent from correct value.  Self-test failed.'
 
       RETURN
